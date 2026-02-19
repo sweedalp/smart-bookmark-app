@@ -2,7 +2,8 @@
 
 A full-stack bookmark manager with Google OAuth, real-time sync, and a clean light-mode UI.
 
-**Live Demo:** _Add your Vercel URL here after deployment_
+**Live Demo:** https://smart-bookmark-8odciptgm-sweedals-projects.vercel.app
+**GitHub:** https://github.com/sweedalp/smart-bookmark-app
 
 ---
 
@@ -118,3 +119,41 @@ Row-Level Security ensures users can only read/write their own bookmarks.
     schema.sql           # DB schema, RLS policies, Realtime setup
  proxy.ts                 # Auth guard (Next.js 16 middleware)
 ```
+
+---
+
+## Problems Faced & How I Solved Them
+
+### 1. `create-next-app` failed — folder name had capital letters
+**Problem:** Running `npx create-next-app` inside `Smart_Bookmark_App` threw an error because npm package names cannot have uppercase letters.
+**Solution:** Manually scaffolded the entire project — created `package.json`, `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, and all app files by hand.
+
+---
+
+### 2. `middleware.ts` not working in Next.js 16
+**Problem:** Next.js 16 renamed the middleware export convention. The standard `middleware.ts` with `export function middleware()` was silently ignored, so auth protection wasn't working.
+**Solution:** Renamed the file to `proxy.ts` and exported a `proxy()` function — the new convention for Next.js 16.
+
+---
+
+### 3. Real-time inserts/deletes only appeared after a page refresh
+**Problem:** Adding or deleting a bookmark didn't update the UI instantly — it only showed after a manual refresh. The Supabase Realtime subscription was firing but state wasn't updating correctly.
+**Solution:** The root cause was two separate components (`AddBookmarkForm` and `BookmarkList`) each managing their own state. Merged them into a single `BookmarksClient` component that owns all state. Also used `.select().single()` after `.insert()` so the newly created row is returned immediately and added to state — preventing a race condition between the optimistic update and the realtime event.
+
+---
+
+### 4. Realtime subscription not firing at all
+**Problem:** Even after the merge fix, realtime DELETE events weren't coming through consistently.
+**Solution:** Supabase Realtime requires `REPLICA IDENTITY FULL` on the table to send the old row data on DELETE. Ran `ALTER TABLE public.bookmarks REPLICA IDENTITY FULL` in the Supabase SQL Editor, and also confirmed the table was added to the `supabase_realtime` publication.
+
+---
+
+### 5. CSS parse error — `@import` after `@tailwind`
+**Problem:** Browser showed "Parsing CSS source code failed" — `@import` rules must come before all other rules in CSS.
+**Solution:** Moved the Google Fonts `@import` to the very top of `globals.css`, before the `@tailwind` directives.
+
+---
+
+### 6. TypeScript error on cookie options
+**Problem:** `cookiesToSet` parameter in `server.ts` and `proxy.ts` was implicitly typed as `any`, causing a TypeScript strict mode error.
+**Solution:** Explicitly typed it as `{ name: string; value: string; options?: CookieOptions }[]` using the `CookieOptions` type imported from `@supabase/ssr`.
