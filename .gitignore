@@ -18,6 +18,9 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 
+# Private notes — local only, never push
+PRIVATE_NOTES.md
+
 # OS
 .DS_Store
 Thumbs.db
